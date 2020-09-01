@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Timeout: 300
+
+Resources:
+  PDFBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: REDACTED
+
+  ScraperFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Policies:
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+      CodeUri: scraper/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Events:
+        MySQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ScrapeQueue.Arn
+            BatchSize: 10
+
+  StatsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: schoolStats
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: schoolUnitId
+          AttributeType: S
+        - AttributeName: statType
+          AttributeType: S
+      KeySchema:
+        - AttributeName: schoolUnitId
+          KeyType: HASH
+        - AttributeName: statType
+          KeyType: RANGE
+
+  MetaTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: schoolMeta
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: schoolUnitId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: schoolUnitId
+          KeyType: HASH
+
+  DocsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: schoolDocs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: schoolUnitId
+          AttributeType: S
+        - AttributeName: title
+          AttributeType: S
+      KeySchema:
+        - AttributeName: schoolUnitId
+          KeyType: HASH
+        - AttributeName: title
+          KeyType: RANGE
+
+  ScrapeQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 400
